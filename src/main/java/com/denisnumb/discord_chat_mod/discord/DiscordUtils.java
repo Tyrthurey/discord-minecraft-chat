@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel;
 import net.dv8tion.jda.api.entities.emoji.RichCustomEmoji;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
@@ -34,23 +35,22 @@ public class DiscordUtils {
             Permission.MESSAGE_EMBED_LINKS,
             Permission.MESSAGE_ATTACH_FILES,
             Permission.MESSAGE_MANAGE,
-            Permission.MESSAGE_HISTORY
-    );
+            Permission.MESSAGE_HISTORY);
 
-    public static Optional<Message> findPinnedStatusMessage(){
+    public static Optional<Message> findPinnedStatusMessage() {
         try {
             return discordChannel.retrievePinnedMessages()
                     .complete()
                     .stream()
                     .filter(message -> message.getAuthor().getId().equals(jda.getSelfUser().getId()))
                     .findFirst();
-        } catch (Exception e){
+        } catch (Exception e) {
             LOGGER.error(e.getMessage());
             return Optional.empty();
         }
     }
 
-    public static MessageEmbed buildEmbed(String title, String description, int color){
+    public static MessageEmbed buildEmbed(String title, String description, int color) {
         return new EmbedBuilder()
                 .setTitle(title)
                 .setDescription(description)
@@ -58,30 +58,39 @@ public class DiscordUtils {
                 .build();
     }
 
-    public static MessageEmbed buildEmbed(String description, int color){
+    public static MessageEmbed buildEmbed(String description, int color) {
         return new EmbedBuilder()
                 .setDescription(description)
                 .setColor(color)
                 .build();
     }
 
-    public static void editMessageEmbeds(Message message, MessageEmbed embed){
+    public static void editMessageEmbeds(Message message, MessageEmbed embed) {
         try {
             message.editMessageEmbeds(embed).queue();
-        } catch (Exception e){
+        } catch (Exception e) {
             LOGGER.error(e.getMessage());
         }
     }
 
-    public static void sendShortEmbedMessage(String text, int color){
+    public static void sendShortEmbedMessage(String text, int color) {
         sendEmbedMessage(buildEmbed(text, color), false);
     }
 
-    public static void sendEmbedMessage(String title, String description, int color){
+    public static void sendEmbedMessage(String title, String description, int color) {
         sendEmbedMessage(buildEmbed(title, description, color), false);
     }
 
-    public static Optional<Message> sendEmbedMessageComplete(MessageEmbed embed){
+    public static void sendEmbedMessageToChannel(String title, String description, int color,
+            GuildMessageChannel channel) {
+        sendEmbedMessageToChannel(buildEmbed(title, description, color), channel, false);
+    }
+
+    public static void sendShortEmbedMessageToChannel(String text, int color, GuildMessageChannel channel) {
+        sendEmbedMessageToChannel(buildEmbed(text, color), channel, false);
+    }
+
+    public static Optional<Message> sendEmbedMessageComplete(MessageEmbed embed) {
         return sendEmbedMessage(embed, true);
     }
 
@@ -89,41 +98,79 @@ public class DiscordUtils {
         sendMessage(messageCreateAction, false);
     }
 
-    public static Either<Message, Optional<ErrorResponseException>> sendMessageComplete(MessageCreateAction messageCreateAction) {
+    public static Either<Message, Optional<ErrorResponseException>> sendMessageComplete(
+            MessageCreateAction messageCreateAction) {
         return sendMessage(messageCreateAction, true);
     }
 
-    public static Optional<MessageCreateAction> prepareDiscordTextMessage(String text){
-        try{
+    public static Optional<MessageCreateAction> prepareDiscordTextMessage(String text) {
+        try {
             return Optional.of(discordChannel.sendMessage(text));
-        } catch (Exception e){
-            logErrorToServer(getTranslate(PREPARE_MESSAGE_ERROR, "Error sending message! Make sure the bot has access to the channel and the right to send messages."));
+        } catch (Exception e) {
+            logErrorToServer(getTranslate(PREPARE_MESSAGE_ERROR,
+                    "Error sending message! Make sure the bot has access to the channel and the right to send messages."));
             e.printStackTrace();
             return Optional.empty();
         }
     }
 
-    private static Optional<Message> sendEmbedMessage(MessageEmbed embed, boolean complete){
+    public static Optional<MessageCreateAction> prepareDiscordTextMessageToChannel(String text,
+            GuildMessageChannel channel) {
+        try {
+            return Optional.of(channel.sendMessage(text));
+        } catch (Exception e) {
+            logErrorToServer(getTranslate(PREPARE_MESSAGE_ERROR,
+                    "Error sending message! Make sure the bot has access to the channel and the right to send messages."));
+            e.printStackTrace();
+            return Optional.empty();
+        }
+    }
+
+    private static Optional<Message> sendEmbedMessage(MessageEmbed embed, boolean complete) {
         if (!isDiscordConnected())
             return Optional.empty();
         try {
-            if (complete){
+            if (complete) {
                 Optional<Message> message = sendMessage(discordChannel.sendMessageEmbeds(embed), true).left();
                 if (message.isPresent())
                     return message;
             } else
                 sendMessage(discordChannel.sendMessageEmbeds(embed), false);
-        } catch (InsufficientPermissionException e){
-            logErrorToServer(getTranslate(SEND_EMBED_ERROR, "Error sending message! Make sure the bot has access to the channel, as well as the rights to send messages and embed links."));
+        } catch (InsufficientPermissionException e) {
+            logErrorToServer(getTranslate(SEND_EMBED_ERROR,
+                    "Error sending message! Make sure the bot has access to the channel, as well as the rights to send messages and embed links."));
             e.printStackTrace();
-        } catch (Exception e){
+        } catch (Exception e) {
             LOGGER.error(e.getMessage());
         }
 
         return Optional.empty();
     }
 
-    private static Either<Message, Optional<ErrorResponseException>> sendMessage(MessageCreateAction messageCreateAction, boolean complete) {
+    private static Optional<Message> sendEmbedMessageToChannel(MessageEmbed embed, GuildMessageChannel channel,
+            boolean complete) {
+        if (!isDiscordConnected())
+            return Optional.empty();
+        try {
+            if (complete) {
+                Optional<Message> message = sendMessage(channel.sendMessageEmbeds(embed), true).left();
+                if (message.isPresent())
+                    return message;
+            } else
+                sendMessage(channel.sendMessageEmbeds(embed), false);
+        } catch (InsufficientPermissionException e) {
+            logErrorToServer(getTranslate(SEND_EMBED_ERROR,
+                    "Error sending message! Make sure the bot has access to the channel, as well as the rights to send messages and embed links."));
+            e.printStackTrace();
+        } catch (Exception e) {
+            LOGGER.error(e.getMessage());
+        }
+
+        return Optional.empty();
+    }
+
+    private static Either<Message, Optional<ErrorResponseException>> sendMessage(
+            MessageCreateAction messageCreateAction, boolean complete) {
         try {
             if (complete)
                 return Either.left(messageCreateAction.complete());
@@ -131,9 +178,9 @@ public class DiscordUtils {
                 messageCreateAction.queue();
         } catch (ErrorResponseException e) {
             logErrorToServer(String.format(
-                    getTranslate(SEND_MESSAGE_ERROR, "Error sending message!\nCause: %s\nMake sure the bot has permission to embed links and attach files."),
-                    e.getMeaning())
-            );
+                    getTranslate(SEND_MESSAGE_ERROR,
+                            "Error sending message!\nCause: %s\nMake sure the bot has permission to embed links and attach files."),
+                    e.getMeaning()));
             e.printStackTrace();
             return Either.right(Optional.of(e));
         } catch (Exception e) {

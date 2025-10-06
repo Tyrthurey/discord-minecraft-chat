@@ -9,7 +9,8 @@ import net.minecraftforge.fml.event.config.ModConfigEvent;
 public class Config {
         public enum AchievementMessageStyle {
                 PLAINTEXT,
-                EMBED
+                EMBED,
+                NONE
         }
 
         private static final ForgeConfigSpec.Builder COMMON_BUILDER = new ForgeConfigSpec.Builder();
@@ -43,6 +44,10 @@ public class Config {
                         .comment(" Discord channel ID for messaging with MineCraft\n [!] Make sure the bot has access to the channel and all the permissions listed above.")
                         .define("discordChannelId", "");
 
+        public static final ForgeConfigSpec.ConfigValue<String> DISCORD_ADVANCEMENT_CHANNEL_ID = COMMON_BUILDER
+                        .comment(" Discord channel ID for advancement messages. If empty, uses the main channel.\n [!] Make sure the bot has access to the channel and all the permissions listed above.")
+                        .define("discordAdvancementChannelId", "");
+
         public static final ForgeConfigSpec.BooleanValue LOG_DISCORD_MESSAGES = COMMON_BUILDER
                         .comment(" Do logging to the server console messages from discord")
                         .define("logDiscordMessages", true);
@@ -66,7 +71,7 @@ public class Config {
                         .define("modLocale", "en_us");
 
         public static final ForgeConfigSpec.EnumValue<AchievementMessageStyle> ACHIEVEMENT_MESSAGE_STYLE = COMMON_BUILDER
-                        .comment(" How to display achievement messages in Discord. Can be \"plaintext\" or \"embed\".")
+                        .comment(" How to display achievement messages in Discord. Can be \"plaintext\", \"embed\", or \"none\".")
                         .defineEnum("achievementMessageStyle", AchievementMessageStyle.EMBED);
 
         public static final ForgeConfigSpec.BooleanValue SEND_ACHIEVEMENT_DESCRIPTION = COMMON_BUILDER

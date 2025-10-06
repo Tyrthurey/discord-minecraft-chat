@@ -10,6 +10,7 @@ import com.denisnumb.discord_chat_mod.discord.model.DiscordMentionData;
 import com.denisnumb.discord_chat_mod.markdown.MarkdownParser;
 import com.denisnumb.discord_chat_mod.markdown.MarkdownToComponentConverter;
 import com.denisnumb.discord_chat_mod.markdown.MarkdownToken;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel;
 import net.minecraft.advancements.DisplayInfo;
 import net.minecraft.advancements.FrameType;
 import net.minecraft.resources.ResourceLocation;
@@ -96,6 +97,11 @@ public class MinecraftEvents {
     public static void onAdvancementMade(AdvancementEvent.AdvancementEarnEvent event) {
         if (!isDiscordConnected())
             return;
+
+        // Check if advancement messages are disabled
+        if (Config.ACHIEVEMENT_MESSAGE_STYLE.get() == Config.AchievementMessageStyle.NONE)
+            return;
+
         DisplayInfo displayInfo = event.getAdvancement().getDisplay();
         if (displayInfo == null)
             return;
@@ -127,21 +133,40 @@ public class MinecraftEvents {
                 ? "**`" + title + "`**"
                 : title;
 
+        // Get the appropriate channel for advancements
+        var advancementChannel = getAdvancementChannel();
+
         if (Config.ACHIEVEMENT_MESSAGE_STYLE.get() == Config.AchievementMessageStyle.EMBED) {
             int color = displayInfo.getFrame() == FrameType.CHALLENGE ? PURPLE : GOLD;
-            sendEmbedMessage(
-                    String.format(
-                            message,
-                            formattedPlayerName,
-                            formattedTitle),
-                    Config.SEND_ACHIEVEMENT_DESCRIPTION.get() ? description : "",
-                    color);
+            if (advancementChannel != null) {
+                DiscordUtils.sendEmbedMessageToChannel(
+                        String.format(
+                                message,
+                                formattedPlayerName,
+                                formattedTitle),
+                        Config.SEND_ACHIEVEMENT_DESCRIPTION.get() ? description : "",
+                        color,
+                        advancementChannel);
+            } else {
+                sendEmbedMessage(
+                        String.format(
+                                message,
+                                formattedPlayerName,
+                                formattedTitle),
+                        Config.SEND_ACHIEVEMENT_DESCRIPTION.get() ? description : "",
+                        color);
+            }
         } else {
             String plainTextMessage = String.format(
                     message,
                     formattedPlayerName,
                     formattedTitle);
-            prepareDiscordTextMessage(plainTextMessage).ifPresent(DiscordUtils::sendMessage);
+            if (advancementChannel != null) {
+                DiscordUtils.prepareDiscordTextMessageToChannel(plainTextMessage, advancementChannel)
+                        .ifPresent(DiscordUtils::sendMessage);
+            } else {
+                prepareDiscordTextMessage(plainTextMessage).ifPresent(DiscordUtils::sendMessage);
+            }
         }
     }
 
@@ -214,5 +239,19 @@ public class MinecraftEvents {
 
         sendShortEmbedMessage(String.format(message, "**" + event.getEntity().getName().getString() + "**"), color);
         updateServerStatusWithDelay();
+    }
+
+    private static GuildMessageChannel getAdvancementChannel() {
+        String advancementChannelId = Config.DISCORD_ADVANCEMENT_CHANNEL_ID.get();
+        if (advancementChannelId == null || advancementChannelId.isEmpty()) {
+            return null; // Use default channel
+        }
+
+        try {
+            return jda.getChannelById(GuildMessageChannel.class, advancementChannelId);
+        } catch (Exception e) {
+            // If advancement channel is invalid, fall back to default channel
+            return null;
+        }
     }
 }
